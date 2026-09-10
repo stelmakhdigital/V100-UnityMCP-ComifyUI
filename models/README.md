@@ -7,8 +7,8 @@
 
 Инструмент (одноразово):
 ```bash
-pip install -U "huggingface_hub[cli]"
-# Если репозитории gated (требуют согласия) — huggingface-cli login с токеном HF
+pip install -U "huggingface_hub[cli]"   # в huggingface_hub >= 0.34 команда — hf
+# Если репозитории gated (требуют согласия) — hf auth login с токеном HF
 ```
 
 ---
@@ -25,19 +25,19 @@ pip install -U "huggingface_hub[cli]"
 
 ```bash
 # Основной вариант (уже прописан в config.env):
-huggingface-cli download QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 \
+hf download QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 \
   --local-dir models/llm/Qwen3.8-27B-QUASAR-NVFP4
 
 # DFlash2-ускорение (потом в config.env: LLM_DFLASH2=1):
-# huggingface-cli download incoai/Qwen3.8-27B-DFlash2 \
+# hf download incoai/Qwen3.8-27B-DFlash2 \
 #   --local-dir models/llm/Qwen3.8-27B-DFlash2
 
 # Альтернативы (параллельные каталоги; активная — LLM_MODEL_DIR в config.env):
-# huggingface-cli download Qwen/Qwen3.8-27B-FP8 \
+# hf download Qwen/Qwen3.8-27B-FP8 \
 #   --local-dir models/llm/Qwen3.8-27B-FP8
-# huggingface-cli download Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
+# hf download Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
 #   --local-dir models/llm/Qwen3-30B-A3B-Instruct-2507-FP8
-# huggingface-cli download Qwen/Qwen3-14B-Instruct-2507 \
+# hf download Qwen/Qwen3-14B-Instruct-2507 \
 #   --local-dir models/llm/Qwen3-14B-Instruct-2507
 ```
 
@@ -79,17 +79,17 @@ fast-path'ов, но всё равно заметно быстрее обычн�
 
 ```bash
 # Минимальный набор:
-huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 sd_xl_base_1.0.safetensors \
+hf download stabilityai/stable-diffusion-xl-base-1.0 sd_xl_base_1.0.safetensors \
   --local-dir models/comfy/checkpoints
-huggingface-cli download madebyollin/sdxl-vae-fp16-fix vae.safetensors \
+hf download madebyollin/sdxl-vae-fp16-fix vae.safetensors \
   --local-dir /tmp/vae_sdxl && mv /tmp/vae_sdxl/vae.safetensors models/comfy/vae/sdxl-vae-fp16-fix.safetensors
-huggingface-cli download openai/clip-vit-large-patch14 model.safetensors \
+hf download openai/clip-vit-large-patch14 model.safetensors \
   --local-dir /tmp/clip_l && mv /tmp/clip_l/model.safetensors models/comfy/text_encoders/clip_l.safetensors
 
 # Опции (по желанию):
-huggingface-cli download stabilityai/stable-diffusion-xl-refiner-1.0 sd_xl_refiner_1.0.safetensors \
+hf download stabilityai/stable-diffusion-xl-refiner-1.0 sd_xl_refiner_1.0.safetensors \
   --local-dir models/comfy/checkpoints
-huggingface-cli download stabilityai/sdxl-turbo sd_xl_turbo.safetensors \
+hf download stabilityai/sdxl-turbo sd_xl_turbo.safetensors \
   --local-dir models/comfy/checkpoints
 ```
 
@@ -105,7 +105,7 @@ PaintPBR вместо старого Paint+delight — моделей меньш
 | `hunyuan3d-vae-v2-1` | ~0.6 GB |
 
 ```bash
-huggingface-cli download tencent/Hunyuan3D-2.1 \
+hf download tencent/Hunyuan3D-2.1 \
   --include "hunyuan3d-dit-v2-1/*" \
   --include "hunyuan3d-paintpbr-v2-1/*" \
   --include "hunyuan3d-vae-v2-1/*" \

@@ -60,7 +60,7 @@
 ./scripts/00-setup.sh
 
 # 2. Скачать модели (отдельно, по манифесту)
-#    -> models/README.md  (~96 GB, huggingface-cli)
+#    -> models/README.md  (~96 GB, hf)
 
 # 3. Запустить весь пайплайн
 ./scripts/start-all.sh
