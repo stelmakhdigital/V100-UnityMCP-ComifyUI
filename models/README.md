@@ -93,31 +93,47 @@ huggingface-cli download stabilityai/sdxl-turbo sd_xl_turbo.safetensors \
   --local-dir models/comfy/checkpoints
 ```
 
-## 3. Hunyuan3D-2 (GPU 3) — ~36.4 GB
+## 3. Hunyuan3D-2.1 (GPU 3) — ~14 GB
 
-Нужны 4 подпапки из репозитория `tencent/Hunyuan3D-2` (весь репозиторий 70 GB —
-turbo/fast варианты нам не нужны):
+Нужны 3 подпапки из репозитория `tencent/Hunyuan3D-2.1` (вместе ~14 GB;
+PaintPBR вместо старого Paint+delight — моделей меньше, пайплайн один):
 
 | Что | Размер |
 |---|---|
-| `hunyuan3d-dit-v2-0` (shape, полная точность) | 22.95 GB |
-| `hunyuan3d-paint-v2-0` (PBR-текстуры) | 8.56 GB |
-| `hunyuan3d-vae-v2-0` | 0.80 GB |
-| `hunyuan3d-delight-v2-0` (нужен paint-пайплайну) | 4.02 GB |
-| `config.json` (индекс в корне репозитория) | <1 MB |
+| `hunyuan3d-dit-v2-1` (shape) | ~6.9 GB |
+| `hunyuan3d-paintpbr-v2-1` (PBR-текстуры) | ~6.5 GB |
+| `hunyuan3d-vae-v2-1` | ~0.6 GB |
 
 ```bash
-huggingface-cli download tencent/Hunyuan3D-2 \
-  --include "hunyuan3d-dit-v2-0/*" \
-  --include "hunyuan3d-paint-v2-0/*" \
-  --include "hunyuan3d-vae-v2-0/*" \
-  --include "hunyuan3d-delight-v2-0/*" \
-  --include "config.json" \
-  --local-dir models/hunyuan3d-2
+huggingface-cli download tencent/Hunyuan3D-2.1 \
+  --include "hunyuan3d-dit-v2-1/*" \
+  --include "hunyuan3d-paintpbr-v2-1/*" \
+  --include "hunyuan3d-vae-v2-1/*" \
+  --local-dir models/hunyuan3d-2.1
 ```
 
-Проверка: в `models/hunyuan3d-2/` есть каталоги `hunyuan3d-dit-v2-0/`,
-`hunyuan3d-paint-v2-0/`, `hunyuan3d-vae-v2-0/`, `hunyuan3d-delight-v2-0/` и файл `config.json`.
+Проверка: в `models/hunyuan3d-2.1/` есть каталоги `hunyuan3d-dit-v2-1/`,
+`hunyuan3d-paintpbr-v2-1/`, `hunyuan3d-vae-v2-1/`.
+
+---
+
+## Деплой на машину, где модели уже лежат (напр. /mnt/storage/models)
+
+Если модели скачаны не в `models/`, а в общем каталоге — копировать ничего
+не нужно: скрипты понимают абсолютные пути. В `config.env` машины:
+
+```bash
+LLM_MODEL_DIR="/mnt/storage/models/Qwen3.8-27B-QUASAR-NVFP4"
+LLM_DFLASH2=1
+LLM_DFLASH2_MODEL="/mnt/storage/models/Qwen3.8-27B-DFlash2"
+COMFYUI_MODELS_ROOT="/mnt/storage/models/comfyui"   # checkpoints/ clip/ vae/ лежат рядом
+HY3D_MODEL_DIR="/mnt/storage/models/Hunyuan3D-2.1"
+```
+
+`00-setup.sh` сделает симлинки `vendor/ComfyUI/models/{checkpoints,clip,vae} ->`
+`$COMFYUI_MODELS_ROOT/...` и проверит наличие всех моделей по фактическим
+путям (CLIP-L ищется в `clip/` или `text_encoders/`, VAE — `sdxl_vae.*` или
+`sdxl-vae-fp16-fix.*`).
 
 ---
 

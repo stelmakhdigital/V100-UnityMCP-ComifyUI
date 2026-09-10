@@ -8,7 +8,7 @@
   C#-скрипты, двигает GameObject'ы, правит сцены и материалы;
 - **ComfyUI** — генерация 2D-графики для игры: текстуры, UI-элементы,
   иллюстрации, спрайты (SDXL);
-- **Hunyuan3D-2** — генерация 3D-моделей (mesh + PBR-текстуры, экспорт в
+- **Hunyuan3D-2.1** — генерация 3D-моделей (mesh + PBR-текстуры, экспорт в
   `.glb`/`.fbx`-совместимые форматы) для прямого использования в Unity.
 
 ```
@@ -27,7 +27,7 @@
                                 ├──► ComfyUI (SDXL): текстуры / UI / арт
                                 │     GPU 2, :8188 (веб + REST /prompt)
                                 │
-                                └──► Hunyuan3D-2: 3D-модели
+                                └──► Hunyuan3D-2.1: 3D-модели
                                       GPU 3, :8081 (Gradio: text/image→3D)
 ```
 
@@ -37,7 +37,7 @@
 |---|---|---|---|---|
 | 0, 1 | 1Cat-vLLM (TP=2) | Qwen3.8-27B-QUASAR-NVFP4 (dense 27B, 256k) | ~21–22 GB на карту | 0.90 × 32 = 28.8 GB |
 | 2 | ComfyUI | SDXL base+refiner+VAE+CLIP-L+LoRA | ~15 GB (пик с refiner'ом) | 32 GB |
-| 3 | Hunyuan3D-2 | DiT + Paint + VAE + Delight, fp16 | ~26 GB | 32 GB |
+| 3 | Hunyuan3D-2.1 | DiT v2.1 + PaintPBR + VAE, fp16 | ~20–26 GB | 32 GB |
 
 Все три сервиса живут **на разных картах** и никогда не конкурируют за VRAM —
 главная гарантия «без OOM». Детальный расчёт — ниже, [VRAM-бюджет](#vram-бюджет-почему-нет-oom).
@@ -56,7 +56,7 @@
 ## Быстрый старт
 
 ```bash
-# 1. Установка (venvs, wheel 1Cat-vLLM, ComfyUI, Hunyuan3D-2 — БЕЗ моделей)
+# 1. Установка (venvs, wheel 1Cat-vLLM, ComfyUI, Hunyuan3D-2.1 — БЕЗ моделей)
 ./scripts/00-setup.sh
 
 # 2. Скачать модели (отдельно, по манифесту)
@@ -136,14 +136,14 @@ Thinking-режим Qwen3 на сервере **выключен по умолч
 - все модели живут в VRAM по требованию и выгружаются между заданиями
   (ComfyUI сам управляет offload) — на 32 GB запаса огромный.
 
-### Hunyuan3D-2 (GPU 3, порт 8081)
+### Hunyuan3D-2.1 (GPU 3, порт 8081)
 
 - Gradio-интерфейс: `http://127.0.0.1:8081` — text-to-3D и image-to-3D,
   экспорт `.glb / .obj / .ply / .stl` (текстурированные GLB импортируются в
   Unity как есть);
-- пайплайн: shape DiT (геометрия) → Paint (PBR-текстуры), обе стадии на GPU 3;
-- автоматизация: `gradio_client` (или `minimal_demo.py` в репозитории для
-  пакетной генерации).
+- пайплайн: shape DiT v2.1 (геометрия) → PaintPBR (PBR-текстуры), обе стадии
+  на GPU 3; модели 2.1 заметно легче (≈14 GB на диск против ≈36 GB у 2.0);
+- автоматизация: `gradio_client` (или `api_server.py` в репозитории — REST API).
 
 ## Подключение Unity MCP
 
@@ -199,11 +199,12 @@ SDXL base (6.9) + refiner (6.9, по требованию) + VAE (0.35) + CLIP-L
 + LoRAs (десятки МБ) ≈ **10–15 GB** пика. Запас ~17 GB. Запасной флаг:
 `COMFYUI_RESERVE_VRAM=1`.
 
-### Hunyuan3D-2 (GPU 3)
+### Hunyuan3D-2.1 (GPU 3)
 
-Официальный минимум полного пайплайна ~26 GB; пик с fp16-моделями ~26–28 GB.
-Запас 4–6 GB. Запасной флаг: `HY3D_LOW_VRAM=1` (CPU-offload, медленнее,
-но снимает OOM на любой конфигурации).
+Модели 2.1 легче (DiT v2.1 6.9 GB + PaintPBR + VAE ≈ 14 GB на диск);
+пик полного пайплайна ~20–26 GB. Запас 6–12 GB. Запасной флаг:
+`HY3D_LOW_VRAM=1` (CPU-offload, медленнее, но снимает OOM на любой
+конфигурации).
 
 ### Общий принцип
 
@@ -246,7 +247,7 @@ sm_70; см. [v100-vllm-2026](https://github.com/KumphanartDansiri/v100-vllm-202
 | `./scripts/00-setup.sh` | Установка окружения (идемпотентна) |
 | `./scripts/01-start-vllm.sh` | Только 1Cat-vLLM (GPU 0–1) |
 | `./scripts/02-start-comfyui.sh` | Только ComfyUI (GPU 2) |
-| `./scripts/03-start-3d.sh` | Только Hunyuan3D-2 (GPU 3) |
+| `./scripts/03-start-3d.sh` | Только Hunyuan3D-2.1 (GPU 3) |
 | `./scripts/start-all.sh` | Всё подряд + статус |
 | `./scripts/stop-all.sh` | Остановка всего (+ зачистка без pid-файлов) |
 | `./scripts/status.sh` | GPU, процессы, HTTP-проверки |
@@ -282,7 +283,7 @@ curl -sI http://127.0.0.1:8081 | head -3
 | OOM в Hunyuan3D-2 | `HY3D_LOW_VRAM=1` в `config.env` (CPU-offload) |
 | OOM в ComfyUI (очень редкий) | `COMFYUI_RESERVE_VRAM=2`, меньше LoRAs в графе |
 | Port already in use | Старый процесс без pid-файла: `ps aux \| grep -E 'vllm\|ComfyUI\|gradio'` |
-| Медленно грузится Hunyuan3D-2 | Нормально: ~36 GB моделей, 3–10 минут |
+| Медленно грузится Hunyuan3D-2.1 | Нормально: ~14 GB моделей, 2–5 минут |
 | Ошибка pip: конфликты версий при установке 1Cat-vLLM | Wheel жёстко фиксирует зависимости (torch==2.10.0 и др.) — ставьте в ЧИСТЫЙ venv, как делает `00-setup.sh` |
 
 ## Что НЕ входит (осознанно)

@@ -1,10 +1,15 @@
-# Hunyuan3D-2: зависимости ставятся в два шага (так делает 00-setup.sh):
+# Hunyuan3D-2.1: зависимости ставятся в два шага (так делает 00-setup.sh):
 #
 # Шаг 1 — PyTorch со sm_70 из официального индекса:
 #   pip install torch==2.7.1 torchvision==0.22.1 \
 #     --index-url https://download.pytorch.org/whl/cu126
 #
-# Шаг 2 — зависимости репозитория:
-#   pip install -r vendor/Hunyuan3D-2/requirements.txt
+# Шаг 2 — зависимости репозитория (venv на Python 3.12, поэтому 00-setup.sh
+# расслабляет два старых пина из requirements.txt, у которых нет wheel'ей
+# под cp312: numpy==1.24.4 -> 1.26.4, pymeshlab==2022.2.post3 -> 2023.12.post3):
+#   sed -e 's/^numpy==1\.24\.4$/numpy==1.26.4/' \
+#       -e 's/^pymeshlab==2022\.2\.post3$/pymeshlab==2023.12.post3/' \
+#       vendor/Hunyuan3D-2.1/requirements.txt > vendor/Hunyuan3D-2.1/requirements.py312.txt
+#   pip install -r vendor/Hunyuan3D-2.1/requirements.py312.txt
 #
 # Версии torch/torchvision зафиксированы в config.env (TORCH_VERSION и др.).

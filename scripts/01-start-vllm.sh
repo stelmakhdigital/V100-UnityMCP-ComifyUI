@@ -29,7 +29,8 @@ if curl -fsS -o /dev/null --max-time 3 "$HEALTH_URL/v1/models" 2>/dev/null; then
 fi
 
 [[ -d "venvs/vllm" ]] || die "нет venvs/vllm — сначала запустите ./scripts/00-setup.sh"
-[[ -f "$LLM_MODEL_DIR/config.json" ]] || die "модель LLM не найдена: $LLM_MODEL_DIR (скачайте по models/README.md)"
+LLM_MODEL_PATH="$(abs_path "$LLM_MODEL_DIR")"
+[[ -f "$LLM_MODEL_PATH/config.json" ]] || die "модель LLM не найдена: $LLM_MODEL_PATH (скачайте по models/README.md)"
 
 # Опциональные флаги 1Cat-vLLM
 EXTRA_FLAGS=()
@@ -42,9 +43,10 @@ if [[ "$LLM_ENABLE_TOOL_PARSER" == "1" ]]; then
 fi
 # DFlash2 — спекулятивное декодирование (опционально, см. config.env)
 if [[ "${LLM_DFLASH2:-0}" == "1" ]]; then
-  [[ -f "$ROOT_DIR/$LLM_DFLASH2_MODEL/config.json" ]] || die \
-    "draft-модель DFlash2 не найдена: $LLM_DFLASH2_MODEL (скачайте по models/README.md или LLM_DFLASH2=0)"
-  SPEC_JSON=$(printf '{"method":"dflash","model":"%s","kv_cache_dtype":"auto"}' "$ROOT_DIR/$LLM_DFLASH2_MODEL")
+  DFLASH2_PATH="$(abs_path "$LLM_DFLASH2_MODEL")"
+  [[ -f "$DFLASH2_PATH/config.json" ]] || die \
+    "draft-модель DFlash2 не найдена: $DFLASH2_PATH (скачайте по models/README.md или LLM_DFLASH2=0)"
+  SPEC_JSON=$(printf '{"method":"dflash","model":"%s","kv_cache_dtype":"auto"}' "$DFLASH2_PATH")
   EXTRA_FLAGS+=(--speculative-config "$SPEC_JSON")
 fi
 # Дополнительные аргументы из config.env (в одну строку)
@@ -60,7 +62,7 @@ log "Лог: $LOG_DIR/vllm.log"
 CUDA_VISIBLE_DEVICES="$GPU_VLLM" \
 TOKENIZERS_PARALLELISM=false \
 nohup venvs/vllm/bin/vllm serve \
-  --model "$ROOT_DIR/$LLM_MODEL_DIR" \
+  --model "$LLM_MODEL_PATH" \
   --served-model-name "$LLM_SERVED_NAME" \
   --tensor-parallel-size "$LLM_TP" \
   --dtype float16 \

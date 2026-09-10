@@ -2,7 +2,7 @@
 # =============================================================================
 #  00-setup.sh — первичная установка (без скачивания моделей)
 #    1. Проверяет GPU / драйвер / python
-#    2. Клонирует ComfyUI и Hunyuan3D-2 в vendor/
+#    2. Клонирует ComfyUI и Hunyuan3D-2.1 в vendor/
 #    3. Создаёт 3 изолированных venv: vllm / comfyui / hy3d2
 #    4. Устанавливает закреплённые версии (под V100)
 #    5. Проверяет наличие моделей (только предупреждения)
@@ -46,7 +46,7 @@ mkdir -p \
   "models/comfy/vae" \
   "models/comfy/text_encoders" \
   "models/comfy/upscale_models" \
-  "models/hunyuan3d-2" \
+  "models/hunyuan3d-2.1" \
   venvs vendor logs pids
 
 clone_if_missing() { # <url> <dest>
@@ -61,14 +61,19 @@ clone_if_missing() { # <url> <dest>
 
 log "=== Этап 3/5: репозитории ComfyUI и Hunyuan3D-2 ==="
 clone_if_missing "$COMFYUI_REPO_URL" "vendor/ComfyUI"
-clone_if_missing "$HY3D_REPO_URL" "vendor/Hunyuan3D-2"
+clone_if_missing "$HY3D_REPO_URL" "vendor/Hunyuan3D-2.1"
 
-# Каталог моделей ComfyUI — симлинками в центральный models/comfy
+# Каталог моделей ComfyUI — симлинками: либо во внешний каталог (COMFYUI_MODELS_ROOT,
+# если модели уже скачаны в другом месте), либо в локальный models/comfy
 mkdir -p vendor/ComfyUI/models
-for d in checkpoints loras vae text_encoders upscale_models; do
-  ln -sfn "$ROOT_DIR/models/comfy/$d" "vendor/ComfyUI/models/$d"
+for d in checkpoints loras vae text_encoders upscale_models clip; do
+  if [[ -n "$COMFYUI_MODELS_ROOT" && -d "$COMFYUI_MODELS_ROOT/$d" ]]; then
+    ln -sfn "$COMFYUI_MODELS_ROOT/$d" "vendor/ComfyUI/models/$d"
+  else
+    ln -sfn "$ROOT_DIR/models/comfy/$d" "vendor/ComfyUI/models/$d"
+  fi
 done
-ok "ComfyUI -> models/comfy (симлинки)"
+ok "ComfyUI: каталоги моделей привязаны (внешний каталог: ${COMFYUI_MODELS_ROOT:-нет, локальный models/comfy})"
 
 # ------------------------------------------------------------------ venvs
 make_venv() { # <name>
@@ -126,26 +131,35 @@ venvs/comfyui/bin/pip install \
 venvs/comfyui/bin/pip install -r vendor/ComfyUI/requirements.txt
 
 # ---- venv hy3d2 ------------------------------------------------------------
-log "[3/3] venvs/hy3d2: torch==$TORCH_VERSION ($TORCH_CUDA_TAG) + зависимости Hunyuan3D-2"
+log "[3/3] venvs/hy3d2: torch==$TORCH_VERSION ($TORCH_CUDA_TAG) + зависимости Hunyuan3D-2.1"
 make_venv hy3d2
 venvs/hy3d2/bin/pip install \
   "torch==$TORCH_VERSION" "torchvision==$TORCHVISION_VERSION" \
   --index-url "https://download.pytorch.org/whl/$TORCH_CUDA_TAG"
-venvs/hy3d2/bin/pip install -r vendor/Hunyuan3D-2/requirements.txt
+# В requirements Hunyuan3D-2.1 старые пины, у которых нет wheel'ей под Python 3.12
+# (numpy==1.24.4, pymeshlab==2022.2.post3) — расслабляем только их
+sed -e 's/^numpy==1\.24\.4$/numpy==1.26.4/' \
+    -e 's/^pymeshlab==2022\.2\.post3$/pymeshlab==2023.12.post3/' \
+    vendor/Hunyuan3D-2.1/requirements.txt > vendor/Hunyuan3D-2.1/requirements.py312.txt
+venvs/hy3d2/bin/pip install -r vendor/Hunyuan3D-2.1/requirements.py312.txt
 
 # ------------------------------------------------------------- проверка моделей
 log "=== Этап 5/5: проверка наличия моделей (скачать — models/README.md) ==="
-model_check "$LLM_MODEL_DIR/config.json" "LLM для 1Cat-vLLM"
+LLM_PATH="$(abs_path "$LLM_MODEL_DIR")"
+model_check "$LLM_PATH/config.json" "LLM для 1Cat-vLLM"
 if [[ "${LLM_DFLASH2:-0}" == "1" ]]; then
-  model_check "$LLM_DFLASH2_MODEL/config.json" "DFlash2 draft (LLM_DFLASH2=1)"
+  model_check "$(abs_path "$LLM_DFLASH2_MODEL")/config.json" "DFlash2 draft (LLM_DFLASH2=1)"
 fi
-model_check "models/comfy/checkpoints/sd_xl_base_1.0.safetensors" "SDXL base для ComfyUI"
-model_check "models/comfy/vae/sdxl-vae-fp16-fix.safetensors" "VAE для SDXL"
-model_check "models/comfy/text_encoders/clip_l.safetensors" "CLIP-L для SDXL (или авто-докачка ComfyUI)"
-model_check "models/hunyuan3d-2/hunyuan3d-dit-v2-0" "shape-модель Hunyuan3D-2"
-model_check "models/hunyuan3d-2/hunyuan3d-paint-v2-0" "texture-модель Hunyuan3D-2"
-model_check "models/hunyuan3d-2/hunyuan3d-vae-v2-0" "VAE Hunyuan3D-2"
-model_check "models/hunyuan3d-2/hunyuan3d-delight-v2-0" "delight Hunyuan3D-2"
+COMFY_ROOT="${COMFYUI_MODELS_ROOT:-models/comfy}"
+model_check "$COMFY_ROOT/checkpoints/sd_xl_base_1.0.safetensors" "SDXL base для ComfyUI"
+model_check_any "VAE для SDXL" \
+  "$COMFY_ROOT/vae/sdxl_vae.safetensors" "$COMFY_ROOT/vae/sdxl-vae-fp16-fix.safetensors"
+model_check_any "CLIP-L для SDXL (или авто-докачка ComfyUI)" \
+  "$COMFY_ROOT/clip/clip_l.safetensors" "$COMFY_ROOT/text_encoders/clip_l.safetensors"
+HY3D_ROOT="$(abs_path "$HY3D_MODEL_DIR")"
+model_check "$HY3D_ROOT/$HY3D_SHAPE_SUBFOLDER" "shape-модель Hunyuan3D-2.1 ($HY3D_SHAPE_SUBFOLDER)"
+model_check "$HY3D_ROOT/hunyuan3d-paintpbr-v2-1" "PBR-текстуры Hunyuan3D-2.1"
+model_check "$HY3D_ROOT/hunyuan3d-vae-v2-1" "VAE Hunyuan3D-2.1"
 
 echo
 ok "Установка завершена."

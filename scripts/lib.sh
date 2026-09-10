@@ -96,11 +96,33 @@ wait_tcp() {
 }
 
 # Проверка наличия пути (файла/каталога): model_check <path> <описание>
+# path может быть относительным (относительно ROOT_DIR) или абсолютным
 model_check() {
-  local path="$1" desc="$2"
-  if [[ -e "$ROOT_DIR/$path" ]]; then
+  local path="$1" desc="$2" target
+  if [[ "$path" = /* ]]; then target="$path"; else target="$ROOT_DIR/$path"; fi
+  if [[ -e "$target" ]]; then
     ok "модель на месте: $path"
   else
     warn "модель НЕ скачана: $path ($desc) — см. models/README.md"
   fi
+}
+
+# model_check_any <описание> <path>... — проходит, если существует хотя бы один путь
+model_check_any() {
+  local desc="$1"; shift
+  local p target hit=""
+  for p in "$@"; do
+    if [[ "$p" = /* ]]; then target="$p"; else target="$ROOT_DIR/$p"; fi
+    if [[ -e "$target" ]]; then hit="$p"; break; fi
+  done
+  if [[ -n "$hit" ]]; then
+    ok "модель на месте: $hit"
+  else
+    warn "модель НЕ скачана: $* ($desc) — см. models/README.md"
+  fi
+}
+
+# Относительный путь -> абсолютный (значения из config.env могут быть и так и так)
+abs_path() {
+  if [[ "$1" = /* ]]; then echo "$1"; else echo "$ROOT_DIR/$1"; fi
 }
