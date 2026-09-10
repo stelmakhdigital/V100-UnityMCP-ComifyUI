@@ -17,16 +17,20 @@ pip install -U "huggingface_hub[cli]"   # в huggingface_hub >= 0.34 коман�
 
 | Что | Откуда | Куда положить |
 |---|---|---|
-| **Qwen3.8-27B-QUASAR-NVFP4** (основной; dense 27B, QAT NVFP4, ~19.2 GB) | `QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4` | `models/llm/Qwen3.8-27B-QUASAR-NVFP4/` |
+| **Qwen3.8-27B-NVFP4-DFlash2** (эталон, «продакшен»; NVFP4 + контракт DFlash2, ~24 GB) | `Qwen/Qwen3.8-27B-NVFP4-DFlash2` | `models/llm/Qwen3.8-27B-NVFP4-DFlash2/` |
+| Qwen3.8-27B-QUASAR-NVFP4 (лёгкий QAT NVFP4, ~19.2 GB; release-gate модель 1Cat) | `QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4` | `models/llm/Qwen3.8-27B-QUASAR-NVFP4/` |
 | DFlash2 draft (опц., для спекулятивного декодирования; ~3.6 GB) | `incoai/Qwen3.8-27B-DFlash2` | `models/llm/Qwen3.8-27B-DFlash2/` |
 | Qwen3.8-27B-FP8 (альтернатива, офиц. FP8; ~28.8 GB) | `Qwen/Qwen3.8-27B-FP8` | `models/llm/Qwen3.8-27B-FP8/` |
 | Qwen3-30B-A3B-Instruct-2507-FP8 (альтернатива, MoE active 3.3B; ~29.1 GB) | `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` | `models/llm/Qwen3-30B-A3B-Instruct-2507-FP8/` |
 | Qwen3-14B-Instruct-2507 (запасной: dense, без квантования; ~29.6 GB) | `Qwen/Qwen3-14B-Instruct-2507` | `models/llm/Qwen3-14B-Instruct-2507/` |
 
 ```bash
-# Основной вариант (уже прописан в config.env):
-hf download QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 \
-  --local-dir models/llm/Qwen3.8-27B-QUASAR-NVFP4
+# Основной вариант (эталонный бандл):
+hf download Qwen/Qwen3.8-27B-NVFP4-DFlash2 \
+  --local-dir models/llm/Qwen3.8-27B-NVFP4-DFlash2
+# Лёгкая альтернатива (19.2GB вместо 24GB):
+# hf download QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 \
+#   --local-dir models/llm/Qwen3.8-27B-QUASAR-NVFP4
 
 # DFlash2-ускорение (потом в config.env: LLM_DFLASH2=1):
 # hf download incoai/Qwen3.8-27B-DFlash2 \
@@ -42,8 +46,8 @@ hf download QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 \
 ```
 
 Почему Qwen3.8-27B NVFP4 основной:
-- **1Cat-vLLM — «родной» движок модели**: QUASAR-QAT NVFP4 — рекомендуемая
-  модель 1Cat для sm70 и модель её release-gate (бенчмарки V100);
+- **1Cat-vLLM — «родной» движок модели**: эталонный набор 1Cat (NVFP4 + DFlash2)
+  валидирован на V100 (release-gate, бенчмарки 206–250 tok/s с DFlash2 на TP4);
 - **3.8-поколение** заточено под долгогоризонтные агентные задачи
   (как раз MCP-сценарий); нативный контекст 256k; 4 KV-головы;
 - **мультимодальная**: модель умеет видеть изображения — агент может
@@ -130,11 +134,21 @@ hf download tencent/Hunyuan3D-2.1 \
 не нужно: скрипты понимают абсолютные пути. В `config.env` машины:
 
 ```bash
-LLM_MODEL_DIR="/mnt/storage/models/Qwen3.8-27B-QUASAR-NVFP4"
+# ПАЙПЛАЙН-режим (LLM на 0,1; ComfyUI на 2; 3D на 3):
+LLM_MODEL_DIR="/mnt/storage/models/Qwen3.8-27B-NVFP4-DFlash2"
 LLM_DFLASH2=1
 LLM_DFLASH2_MODEL="/mnt/storage/models/Qwen3.8-27B-DFlash2"
 COMFYUI_MODELS_ROOT="/mnt/storage/models/comfyui"   # checkpoints/ clip/ vae/ лежат рядом
 HY3D_MODEL_DIR="/mnt/storage/models/Hunyuan3D-2.1"
+
+# ПРОДАКШЕН-режим (LLM на всех 4 картах, 256k — эталонный набор 1Cat):
+#   GPU_VLLM="0,1,2,3"
+#   LLM_TP=4
+#   LLM_MAX_MODEL_LEN=262144
+#   ComfyUI/3D при этом не запущены (./scripts/01-start-vllm.sh отдельно)
+#
+# Если vLLM уже стоит в conda/env (напр. 1cat-vllm-15) — укажите VLLM_PYTHON
+# на его python; setup wheel тогда не ставит.
 ```
 
 `00-setup.sh` сделает симлинки `vendor/ComfyUI/models/{checkpoints,clip,vae} ->`

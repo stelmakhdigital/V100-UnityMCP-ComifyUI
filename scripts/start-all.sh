@@ -12,9 +12,14 @@ source "$SCRIPT_DIR/lib.sh"
 load_config
 
 log "Запуск пайплайна V100-UnityMCP-ComifyUI"
-log "  GPU 0,1 -> 1Cat-vLLM ($LLM_SERVED_NAME, порт $VLLM_PORT)"
-log "  GPU 2   -> ComfyUI (порт $COMFY_PORT)"
-log "  GPU 3   -> Hunyuan3D-2 (порт $HY3D_PORT)"
+log "  GPU $GPU_VLLM -> 1Cat-vLLM ($LLM_SERVED_NAME, порт $VLLM_PORT, TP=$LLM_TP)"
+log "  GPU $GPU_COMFYUI -> ComfyUI (порт $COMFY_PORT)"
+log "  GPU $GPU_3D -> Hunyuan3D-2.1 (порт $HY3D_PORT)"
+# Защита от разделения GPU между LLM и ComfyUI/3D (напр. «продакшен-режим» TP4)
+if [[ ",$GPU_VLLM," == *",$GPU_COMFYUI,"* || ",$GPU_VLLM," == *",$GPU_3D,"* ]]; then
+  warn "GPU пересекаются: LLM ($GPU_VLLM) с ComfyUI ($GPU_COMFYUI) / 3D ($GPU_3D) — риск OOM."
+  warn "В «продакшен-режиме» (LLM на всех картах) ComfyUI/3D запускайте отдельно, когда LLM остановлен"
+fi
 echo
 
 FAILURES=0

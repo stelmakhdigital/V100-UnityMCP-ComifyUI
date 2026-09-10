@@ -15,7 +15,7 @@ stop_pidfile comfyui
 stop_pidfile vllm
 
 # Остатки без pid-файлов (на всякий случай)
-for pat in "venvs/vllm/bin/vllm serve" "ComfyUI/main.py" "gradio_app.py"; do
+for pat in "vllm serve" "ComfyUI/main.py" "gradio_app.py"; do
   pids="$(pgrep -f "$pat" 2>/dev/null || true)"
   if [[ -n "$pids" ]]; then
     warn "Найдены процессы без pid-файла ($pat): $pids — останавливаю"

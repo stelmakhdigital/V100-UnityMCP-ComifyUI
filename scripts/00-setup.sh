@@ -89,7 +89,22 @@ make_venv() { # <name>
 
 log "=== Этап 4/5: виртуальные окружения ==="
 
-# ---- venv vllm (1Cat-vLLM) --------------------------------------------------
+# ---- vllm (1Cat-vLLM) ---------------------------------------------------------
+if [[ -n "${VLLM_PYTHON:-}" ]]; then
+  log "[1/3] vllm: используется внешнее окружение $VLLM_PYTHON (wheel НЕ ставится)"
+  "$VLLM_PYTHON" - <<'PYEOF'
+import sys
+import torch
+import vllm
+import flash_attn_v100
+archs = torch.cuda.get_arch_list()
+print(f"  python={sys.version.split()[0]}  torch={torch.__version__}  vllm={vllm.__version__}")
+print(f"  archs={archs}")
+assert any("sm_70" in a for a in archs), \
+    "torch не содержит sm_70 (V100) — во внешнем env стоит неверный torch"
+print("  sm_70 (V100) поддерживается, vllm + flash_attn_v100 импортируются — OK")
+PYEOF
+else
 log "[1/3] venvs/vllm: 1Cat-vLLM $ONECAT_VLLM_VERSION (wheel из GitHub Releases)"
 make_venv vllm
 WHEEL_NAME="1cat_vllm-${ONECAT_VLLM_VERSION}-cp312-cp312-linux_x86_64.whl"
@@ -121,6 +136,7 @@ assert any("sm_70" in a for a in archs), \
     "torch не содержит sm_70 (V100) — установлен неверный torch (нужен из зависимостей wheel 1Cat-vLLM)"
 print("  sm_70 (V100) поддерживается, vllm + flash_attn_v100 импортируются — OK")
 PYEOF
+fi
 
 # ---- venv comfyui ----------------------------------------------------------
 log "[2/3] venvs/comfyui: torch==$TORCH_VERSION ($TORCH_CUDA_TAG) + зависимости ComfyUI"
