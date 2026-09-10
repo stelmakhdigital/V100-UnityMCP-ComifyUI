@@ -13,24 +13,34 @@ pip install -U "huggingface_hub[cli]"
 
 ---
 
-## 1. LLM для Unity MCP (vLLM, GPU 0–1) — ~30 GB
+## 1. LLM для Unity MCP (1Cat-vLLM, GPU 0–1) — ~29 GB
 
 | Что | Откуда | Куда положить |
 |---|---|---|
-| **Qwen3-14B-Instruct-2507** (~29.6 GB, bf16; в vLLM работает в fp16) | `Qwen/Qwen3-14B-Instruct-2507` | `models/llm/Qwen3-14B-Instruct-2507/` |
+| **Qwen3-30B-A3B-Instruct-2507-FP8** (основной; MoE 30.5B total / 3.3B active, офиц. FP8, ~29.1 GB) | `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` | `models/llm/Qwen3-30B-A3B-Instruct-2507-FP8/` |
+| Qwen3-Coder-30B-A3B-Instruct-FP8 (альтернатива, акцент на чистый код; ~29.1 GB) | `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8` | `models/llm/Qwen3-Coder-30B-A3B-Instruct-FP8/` |
+| Qwen3-14B-Instruct-2507 (запасной, «безотказный»: dense, без квантования; ~29.6 GB bf16→fp16) | `Qwen/Qwen3-14B-Instruct-2507` | `models/llm/Qwen3-14B-Instruct-2507/` |
 
 ```bash
-huggingface-cli download Qwen/Qwen3-14B-Instruct-2507 \
-  --local-dir models/llm/Qwen3-14B-Instruct-2507
+# Основной вариант (уже прописан в config.env):
+huggingface-cli download Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
+  --local-dir models/llm/Qwen3-30B-A3B-Instruct-2507-FP8
+
+# Альтернативы (качают в параллельные каталоги; активный — LLM_MODEL_DIR в config.env):
+# huggingface-cli download Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 \
+#   --local-dir models/llm/Qwen3-Coder-30B-A3B-Instruct-FP8
+# huggingface-cli download Qwen/Qwen3-14B-Instruct-2507 \
+#   --local-dir models/llm/Qwen3-14B-Instruct-2507
 ```
 
-Альтернативы:
-- акцент на чистое программирование (Unity C#): `Qwen/Qwen2.5-Coder-14B-Instruct`
-  (~29 GB) — в `config.env` поменяйте `LLM_MODEL_DIR`;
-- больше «мозгов» на тех же 2 картах: квантованный 32B, например
-  `Qwen3-32B` AWQ/FP8 (~20 GB, лежит на одной-двух картах с огромным KV-запасом)
-  — 1Cat-vLLM поддерживает AWQ/FP8/NVFP4-квантование на sm70; проверьте наличие
-  нужного чекпоинта на HF и подставьте путь в `LLM_MODEL_DIR`.
+Почему 30B-A3B, а не 14B (при том же VRAM-бюджете на 2 картах):
+- **быстрее**: на V100 decode ограничен пропускной способностью памяти —
+  активных параметров 3.3B против 14.8B → примерно в 3–5 раз быстрее;
+- **умнее**: качество ~32B-dense класса; 2507-поколение Qwen3 заточено
+  под агентную работу и tool-calling (как раз MCP-сценарий);
+- **длиннее контекст**: 4 KV-головы (у 14B — 8) + нативные 256k токенов.
+- 1Cat-vLLM несёт оптимизированный sm70-путь под MoE + FP8
+  (флаг `--kv-cache-dtype fp8_e5m2` в конфиге сжимает KV ещё вдвое).
 
 Проверка: в каталоге модели есть `config.json`.
 
