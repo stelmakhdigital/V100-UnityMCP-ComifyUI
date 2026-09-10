@@ -13,34 +13,51 @@ pip install -U "huggingface_hub[cli]"
 
 ---
 
-## 1. LLM для Unity MCP (1Cat-vLLM, GPU 0–1) — ~29 GB
+## 1. LLM для Unity MCP (1Cat-vLLM, GPU 0–1) — ~19–29 GB
 
 | Что | Откуда | Куда положить |
 |---|---|---|
-| **Qwen3-30B-A3B-Instruct-2507-FP8** (основной; MoE 30.5B total / 3.3B active, офиц. FP8, ~29.1 GB) | `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` | `models/llm/Qwen3-30B-A3B-Instruct-2507-FP8/` |
-| Qwen3-Coder-30B-A3B-Instruct-FP8 (альтернатива, акцент на чистый код; ~29.1 GB) | `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8` | `models/llm/Qwen3-Coder-30B-A3B-Instruct-FP8/` |
-| Qwen3-14B-Instruct-2507 (запасной, «безотказный»: dense, без квантования; ~29.6 GB bf16→fp16) | `Qwen/Qwen3-14B-Instruct-2507` | `models/llm/Qwen3-14B-Instruct-2507/` |
+| **Qwen3.8-27B-QUASAR-NVFP4** (основной; dense 27B, QAT NVFP4, ~19.2 GB) | `QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4` | `models/llm/Qwen3.8-27B-QUASAR-NVFP4/` |
+| DFlash2 draft (опц., для спекулятивного декодирования; ~3.6 GB) | `incoai/Qwen3.8-27B-DFlash2` | `models/llm/Qwen3.8-27B-DFlash2/` |
+| Qwen3.8-27B-FP8 (альтернатива, офиц. FP8; ~28.8 GB) | `Qwen/Qwen3.8-27B-FP8` | `models/llm/Qwen3.8-27B-FP8/` |
+| Qwen3-30B-A3B-Instruct-2507-FP8 (альтернатива, MoE active 3.3B; ~29.1 GB) | `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` | `models/llm/Qwen3-30B-A3B-Instruct-2507-FP8/` |
+| Qwen3-14B-Instruct-2507 (запасной: dense, без квантования; ~29.6 GB) | `Qwen/Qwen3-14B-Instruct-2507` | `models/llm/Qwen3-14B-Instruct-2507/` |
 
 ```bash
 # Основной вариант (уже прописан в config.env):
-huggingface-cli download Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
-  --local-dir models/llm/Qwen3-30B-A3B-Instruct-2507-FP8
+huggingface-cli download QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 \
+  --local-dir models/llm/Qwen3.8-27B-QUASAR-NVFP4
 
-# Альтернативы (качают в параллельные каталоги; активный — LLM_MODEL_DIR в config.env):
-# huggingface-cli download Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 \
-#   --local-dir models/llm/Qwen3-Coder-30B-A3B-Instruct-FP8
+# DFlash2-ускорение (потом в config.env: LLM_DFLASH2=1):
+# huggingface-cli download incoai/Qwen3.8-27B-DFlash2 \
+#   --local-dir models/llm/Qwen3.8-27B-DFlash2
+
+# Альтернативы (параллельные каталоги; активная — LLM_MODEL_DIR в config.env):
+# huggingface-cli download Qwen/Qwen3.8-27B-FP8 \
+#   --local-dir models/llm/Qwen3.8-27B-FP8
+# huggingface-cli download Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
+#   --local-dir models/llm/Qwen3-30B-A3B-Instruct-2507-FP8
 # huggingface-cli download Qwen/Qwen3-14B-Instruct-2507 \
 #   --local-dir models/llm/Qwen3-14B-Instruct-2507
 ```
 
-Почему 30B-A3B, а не 14B (при том же VRAM-бюджете на 2 картах):
-- **быстрее**: на V100 decode ограничен пропускной способностью памяти —
-  активных параметров 3.3B против 14.8B → примерно в 3–5 раз быстрее;
-- **умнее**: качество ~32B-dense класса; 2507-поколение Qwen3 заточено
-  под агентную работу и tool-calling (как раз MCP-сценарий);
-- **длиннее контекст**: 4 KV-головы (у 14B — 8) + нативные 256k токенов.
-- 1Cat-vLLM несёт оптимизированный sm70-путь под MoE + FP8
-  (флаг `--kv-cache-dtype fp8_e5m2` в конфиге сжимает KV ещё вдвое).
+Почему Qwen3.8-27B NVFP4 основной:
+- **1Cat-vLLM — «родной» движок модели**: QUASAR-QAT NVFP4 — рекомендуемая
+  модель 1Cat для sm70 и модель её release-gate (бенчмарки V100);
+- **3.8-поколение** заточено под долгогоризонтные агентные задачи
+  (как раз MCP-сценарий); нативный контекст 256k; 4 KV-головы;
+- **мультимодальная**: модель умеет видеть изображения — агент может
+  «смотреть» скриншоты сцены/игрового окна Unity (через vision-формат
+  OpenAI API), чего ни одна из запасных моделей не умеет;
+- QAT-квантование NVFP4: качество близко к bf16, веса всего 19.2 GB
+  → при TP2 ~9.6 GB/карту, огромный запас под KV-кэш.
+
+DFlash2 (опция `LLM_DFLASH2=1`): спекулятивное декодирование — 1Cat меряет
+206–250 tok/s на 4×V100 (TP4); на нашем TP2 работает с частичным фолбэком
+fast-path'ов, но всё равно заметно быстрее обычного decode.
+
+Запасной вариант «безотказный»: Qwen3-14B fp16 (dense, без квантования).
+МоE-вариант 30B-A3B удобен, если нужен максимум контекста без доп. компонентов.
 
 Проверка: в каталоге модели есть `config.json`.
 

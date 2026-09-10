@@ -136,6 +136,9 @@ venvs/hy3d2/bin/pip install -r vendor/Hunyuan3D-2/requirements.txt
 # ------------------------------------------------------------- проверка моделей
 log "=== Этап 5/5: проверка наличия моделей (скачать — models/README.md) ==="
 model_check "$LLM_MODEL_DIR/config.json" "LLM для 1Cat-vLLM"
+if [[ "${LLM_DFLASH2:-0}" == "1" ]]; then
+  model_check "$LLM_DFLASH2_MODEL/config.json" "DFlash2 draft (LLM_DFLASH2=1)"
+fi
 model_check "models/comfy/checkpoints/sd_xl_base_1.0.safetensors" "SDXL base для ComfyUI"
 model_check "models/comfy/vae/sdxl-vae-fp16-fix.safetensors" "VAE для SDXL"
 model_check "models/comfy/text_encoders/clip_l.safetensors" "CLIP-L для SDXL (или авто-докачка ComfyUI)"

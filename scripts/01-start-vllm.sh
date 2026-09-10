@@ -40,6 +40,18 @@ if [[ "$LLM_ENABLE_TOOL_PARSER" == "1" ]]; then
   EXTRA_FLAGS+=(--enable-auto-tool-choice --tool-call-parser "$LLM_TOOL_CALL_PARSER")
   [[ -n "$LLM_REASONING_PARSER" ]] && EXTRA_FLAGS+=(--reasoning-parser "$LLM_REASONING_PARSER")
 fi
+# DFlash2 — спекулятивное декодирование (опционально, см. config.env)
+if [[ "${LLM_DFLASH2:-0}" == "1" ]]; then
+  [[ -f "$ROOT_DIR/$LLM_DFLASH2_MODEL/config.json" ]] || die \
+    "draft-модель DFlash2 не найдена: $LLM_DFLASH2_MODEL (скачайте по models/README.md или LLM_DFLASH2=0)"
+  SPEC_JSON=$(printf '{"method":"dflash","model":"%s","kv_cache_dtype":"auto"}' "$ROOT_DIR/$LLM_DFLASH2_MODEL")
+  EXTRA_FLAGS+=(--speculative-config "$SPEC_JSON")
+fi
+# Дополнительные аргументы из config.env (в одну строку)
+if [[ -n "${LLM_EXTRA_FLAGS:-}" ]]; then
+  read -r -a _extra_flags <<< "$LLM_EXTRA_FLAGS"
+  EXTRA_FLAGS+=("${_extra_flags[@]}")
+fi
 
 log "Запуск 1Cat-vLLM: модель=$LLM_MODEL_DIR GPU=$GPU_VLLM TP=$LLM_TP порт=$VLLM_PORT"
 log "Контекст=$LLM_MAX_MODEL_LEN, gpu-mem-util=$LLM_GPU_MEM_UTIL, backend=$LLM_ATTENTION_BACKEND, kv=$LLM_KV_CACHE_DTYPE"
