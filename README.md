@@ -91,11 +91,11 @@
 - **DFlash2 (опция)**: `LLM_DFLASH2=1` + draft-модель 3.6 GB — спекулятивное
   декодирование, до ~200+ tok/s на 4×V100 (на TP2 — с частичным фолбэком
   fast-path'ов, но всё равно быстрее обычного decode);
-- **два режима раскладки** (одна конфигурация, разные `GPU_VLLM`/`LLM_TP`):
-  - *пайплайн* (дефолт): TP2 на GPU 0,1, контекст 131k — карты 2 и 3 за
+- **два режима раскладки** — переключаются одной командой
+  `./scripts/mode.sh prod|pipeline` (оверлей `mode.env`, см. «Режимы GPU»):
+  - *pipeline* (дефолт): TP2 на GPU 0,1, контекст 131k — карты 2 и 3 за
     ComfyUI и 3D;
-  - *продакшен*: TP4 на всех 4 картах, 256k — эталонный набор 1Cat
-    (`GPU_VLLM="0,1,2,3" LLM_TP=4 LLM_MAX_MODEL_LEN=262144`); ComfyUI/3D
+  - *prod*: TP4 на всех 4 картах, 256k — эталонный набор 1Cat; ComfyUI/3D
     тогда не запущены.
 
 Окружение 1Cat: `VLLM_SM70_NVFP4_TURBOMIND=1` (NVFP4-ядра TurboMind),
@@ -264,10 +264,30 @@ sm_70; см. [v100-vllm-2026](https://github.com/KumphanartDansiri/v100-vllm-202
 | `./scripts/start-all.sh` | Всё подряд + статус |
 | `./scripts/stop-all.sh` | Остановка всего (+ зачистка без pid-файлов) |
 | `./scripts/status.sh` | GPU, процессы, HTTP-проверки |
+| `./scripts/mode.sh` | Текущий GPU-режим + статус |
+| `./scripts/mode.sh prod` | LLM TP4 на GPU 0–3 (256k); ComfyUI/3D остановлены |
+| `./scripts/mode.sh pipeline` | LLM TP2 на GPU 0,1 + ComfyUI (2) + 3D (3) |
 
 Логи: `logs/vllm.log`, `logs/comfyui.log`, `logs/hunyuan3d.log`.
 PID-файлы: `pids/`. Все настройки — в `config.env` (GPU, порты, модели,
 флаги, версии).
+
+### Режимы GPU: `mode.sh`
+
+Переключение между двумя раскладками одной командой:
+
+- **pipeline** (дефолт, = чистый `config.env`): LLM TP2 на GPU 0,1 (контекст
+  ~131k) + ComfyUI на GPU 2 + Hunyuan3D-2.1 на GPU 3;
+- **prod**: LLM TP4 на GPU 0,1,2,3, контекст 262144 (256k) — эталонный набор
+  1Cat; ComfyUI/3D при этом не запущены.
+
+Механика: `mode.sh prod` останавливает все сервисы, дожидается освобождения
+VRAM, пишет оверлей **`mode.env`** (переопределяет `GPU_VLLM`/`LLM_TP`/
+`LLM_MAX_MODEL_LEN` для **всех** скриптов — `load_config` подгружает его после
+`config.env`) и стартует 1Cat-vLLM. `mode.sh pipeline` удаляет `mode.env`
+(действуют дефолты) и запускает весь набор через `start-all.sh`. Скрипт
+идемпотентен; `mode.env` — локальное состояние машины (в git не попадает),
+его можно посмотреть через `cat mode.env` / `./scripts/mode.sh`.
 
 ## Тесты после запуска
 

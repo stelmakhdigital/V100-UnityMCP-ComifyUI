@@ -25,10 +25,19 @@ warn() { echo "${C_YELLOW}[$(date +%H:%M:%S)] WARN${C_RST} $*"; }
 die()  { echo "${C_RED}[$(date +%H:%M:%S)] ОШИБКА:${C_RST} $*" >&2; exit 1; }
 
 # Загрузка config.env (создаёт logs/ и pids/)
+# После config.env подгружается оверлей mode.env (режим GPU, пишет scripts/mode.sh):
+#   prod = LLM TP4 на всех картах (256k), pipeline = дефолты config.env
 load_config() {
   [[ -f "$CONFIG_FILE" ]] || die "не найден конфиг: $CONFIG_FILE"
   # shellcheck disable=SC1090
   source "$CONFIG_FILE"
+  if [[ -f "$ROOT_DIR/mode.env" ]]; then
+    local _mode_label
+    _mode_label="$(sed -n 's/^# режим: \([^ ]*\).*/\1/p' "$ROOT_DIR/mode.env" | head -1)"
+    log "режим GPU (mode.env): ${_mode_label:-prod}"
+    # shellcheck disable=SC1090
+    source "$ROOT_DIR/mode.env"
+  fi
   mkdir -p "$LOG_DIR" "$PID_DIR"
 }
 
