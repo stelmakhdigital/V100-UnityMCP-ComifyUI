@@ -153,7 +153,27 @@ Thinking-режим Qwen3 на сервере **выключен по умолч
   Unity как есть);
 - пайплайн: shape DiT v2.1 (геометрия) → PaintPBR (PBR-текстуры), обе стадии
   на GPU 3; модели 2.1 заметно легче (≈14 GB на диск против ≈36 GB у 2.0);
-- автоматизация: `gradio_client` (или `api_server.py` в репозитории — REST API).
+- автоматизация: `gradio_client` (или `api_server.py` в репозитории — REST API);
+- **существующая установка**: `HY3D_PATH` (checkout с venv) — пайплайн запускает
+  ваш `api_server.py` (REST: `POST /generate`, `"texture": true`) вместо
+  свежего клона в vendor/.
+
+## Существующие установки (ваши ComfyUI / Hunyuan3D / conda)
+
+Если ComfyUI или Hunyuan3D **уже установлены** (checkout + venv + custom_nodes),
+не нужно ставить их повторно — укажите пути, и пайплайн будет использовать
+**ваши** копии:
+
+```bash
+COMFYUI_PATH="$HOME/apps/ComfyUI"        # .venv/bin/python нащупается сам
+HY3D_PATH="$HOME/apps/Hunyuan3D-2.1"     # venv/bin/python + api_server.py (REST)
+VLLM_PYTHON="$HOME/miniconda3/envs/1cat-vllm-15/bin/python"   # для LLM
+```
+
+При заданных путях `00-setup.sh` только проверяет окружения (torch, sm_70,
+наличие entry-скриптов) и **не** клонирует репозитории / не создаёт venvs;
+`comfy-models.json` в вашем ComfyUI передаётся как `--extra-model-paths-config`
+(ваше картирование моделей остаётся действующим).
 
 ## Подключение Unity MCP
 

@@ -59,21 +59,29 @@ clone_if_missing() { # <url> <dest>
   fi
 }
 
-log "=== Этап 3/5: репозитории ComfyUI и Hunyuan3D-2 ==="
-clone_if_missing "$COMFYUI_REPO_URL" "vendor/ComfyUI"
-clone_if_missing "$HY3D_REPO_URL" "vendor/Hunyuan3D-2.1"
-
-# Каталог моделей ComfyUI — симлинками: либо во внешний каталог (COMFYUI_MODELS_ROOT,
-# если модели уже скачаны в другом месте), либо в локальный models/comfy
-mkdir -p vendor/ComfyUI/models
-for d in checkpoints loras vae text_encoders upscale_models clip; do
-  if [[ -n "$COMFYUI_MODELS_ROOT" && -d "$COMFYUI_MODELS_ROOT/$d" ]]; then
-    ln -sfn "$COMFYUI_MODELS_ROOT/$d" "vendor/ComfyUI/models/$d"
-  else
-    ln -sfn "$ROOT_DIR/models/comfy/$d" "vendor/ComfyUI/models/$d"
-  fi
-done
-ok "ComfyUI: каталоги моделей привязаны (внешний каталог: ${COMFYUI_MODELS_ROOT:-нет, локальный models/comfy})"
+log "=== Этап 3/5: репозитории ComfyUI и Hunyuan3D-2.1 ==="
+if [[ -n "${COMFYUI_PATH:-}" ]]; then
+  log "[ComfyUI] существующая установка: $COMFYUI_PATH (клон/venv/симлинки НЕ создаются)"
+else
+  clone_if_missing "$COMFYUI_REPO_URL" "vendor/ComfyUI"
+  # Каталог моделей ComfyUI — симлинками: либо во внешний каталог
+  # (COMFYUI_MODELS_ROOT, если модели уже скачаны в другом месте),
+  # либо в локальный models/comfy
+  mkdir -p vendor/ComfyUI/models
+  for d in checkpoints loras vae text_encoders upscale_models clip; do
+    if [[ -n "$COMFYUI_MODELS_ROOT" && -d "$COMFYUI_MODELS_ROOT/$d" ]]; then
+      ln -sfn "$COMFYUI_MODELS_ROOT/$d" "vendor/ComfyUI/models/$d"
+    else
+      ln -sfn "$ROOT_DIR/models/comfy/$d" "vendor/ComfyUI/models/$d"
+    fi
+  done
+  ok "ComfyUI: каталоги моделей привязаны (внешний каталог: ${COMFYUI_MODELS_ROOT:-нет, локальный models/comfy})"
+fi
+if [[ -n "${HY3D_PATH:-}" ]]; then
+  log "[Hunyuan3D-2.1] существующая установка: $HY3D_PATH (клон/venv НЕ создаются)"
+else
+  clone_if_missing "$HY3D_REPO_URL" "vendor/Hunyuan3D-2.1"
+fi
 
 # ------------------------------------------------------------------ venvs
 make_venv() { # <name>
@@ -138,15 +146,46 @@ print("  sm_70 (V100) поддерживается, vllm + flash_attn_v100 им�
 PYEOF
 fi
 
-# ---- venv comfyui ----------------------------------------------------------
+# ---- comfyui ----------------------------------------------------------------
+if [[ -n "${COMFYUI_PATH:-}" ]]; then
+  log "[2/3] comfyui: существующая установка $COMFYUI_PATH (venv НЕ создаётся)"
+  [[ -f "$COMFYUI_PATH/main.py" ]] || die "COMFYUI_PATH: не найден main.py: $COMFYUI_PATH"
+  resolve_repo_python "${COMFYUI_PYTHON:-}" "$COMFYUI_PATH" || \
+    die "comfyui python не найден: укажите COMFYUI_PYTHON (искомые: $COMFYUI_PATH/.venv/bin/python, $COMFYUI_PATH/venv/bin/python)"
+  "$REPO_PY" - <<'PYEOF'
+import sys
+import torch
+archs = torch.cuda.get_arch_list()
+print(f"  python={sys.version.split()[0]}  torch={torch.__version__}")
+print(f"  archs={archs}")
+assert any("sm_70" in a for a in archs), "torch не содержит sm_70 (V100)"
+print("  sm_70 (V100) поддерживается — OK")
+PYEOF
+else
 log "[2/3] venvs/comfyui: torch==$TORCH_VERSION ($TORCH_CUDA_TAG) + зависимости ComfyUI"
 make_venv comfyui
 venvs/comfyui/bin/pip install \
   "torch==$TORCH_VERSION" "torchvision==$TORCHVISION_VERSION" \
   --index-url "https://download.pytorch.org/whl/$TORCH_CUDA_TAG"
 venvs/comfyui/bin/pip install -r vendor/ComfyUI/requirements.txt
+fi
 
-# ---- venv hy3d2 ------------------------------------------------------------
+# ---- hy3d2 ------------------------------------------------------------------
+if [[ -n "${HY3D_PATH:-}" ]]; then
+  log "[3/3] hy3d2: существующая установка $HY3D_PATH (venv НЕ создаётся)"
+  [[ -f "$HY3D_PATH/api_server.py" ]] || die "HY3D_PATH: не найден api_server.py: $HY3D_PATH"
+  resolve_repo_python "${HY3D_PYTHON:-}" "$HY3D_PATH" || \
+    die "hy3d python не найден: укажите HY3D_PYTHON (искомые: $HY3D_PATH/.venv/bin/python, $HY3D_PATH/venv/bin/python)"
+  "$REPO_PY" - <<'PYEOF'
+import sys
+import torch
+archs = torch.cuda.get_arch_list()
+print(f"  python={sys.version.split()[0]}  torch={torch.__version__}")
+print(f"  archs={archs}")
+assert any("sm_70" in a for a in archs), "torch не содержит sm_70 (V100)"
+print("  sm_70 (V100) поддерживается — OK")
+PYEOF
+else
 log "[3/3] venvs/hy3d2: torch==$TORCH_VERSION ($TORCH_CUDA_TAG) + зависимости Hunyuan3D-2.1"
 make_venv hy3d2
 venvs/hy3d2/bin/pip install \
@@ -158,6 +197,7 @@ sed -e 's/^numpy==1\.24\.4$/numpy==1.26.4/' \
     -e 's/^pymeshlab==2022\.2\.post3$/pymeshlab==2023.12.post3/' \
     vendor/Hunyuan3D-2.1/requirements.txt > vendor/Hunyuan3D-2.1/requirements.py312.txt
 venvs/hy3d2/bin/pip install -r vendor/Hunyuan3D-2.1/requirements.py312.txt
+fi
 
 # ------------------------------------------------------------- проверка моделей
 log "=== Этап 5/5: проверка наличия моделей (скачать — models/README.md) ==="
@@ -166,12 +206,16 @@ model_check "$LLM_PATH/config.json" "LLM для 1Cat-vLLM"
 if [[ "${LLM_DFLASH2:-0}" == "1" ]]; then
   model_check "$(abs_path "$LLM_DFLASH2_MODEL")/config.json" "DFlash2 draft (LLM_DFLASH2=1)"
 fi
-COMFY_ROOT="${COMFYUI_MODELS_ROOT:-models/comfy}"
-model_check "$COMFY_ROOT/checkpoints/sd_xl_base_1.0.safetensors" "SDXL base для ComfyUI"
-model_check_any "VAE для SDXL" \
-  "$COMFY_ROOT/vae/sdxl_vae.safetensors" "$COMFY_ROOT/vae/sdxl-vae-fp16-fix.safetensors"
-model_check_any "CLIP-L для SDXL (или авто-докачка ComfyUI)" \
-  "$COMFY_ROOT/clip/clip_l.safetensors" "$COMFY_ROOT/text_encoders/clip_l.safetensors"
+if [[ -n "${COMFYUI_PATH:-}" && -f "$COMFYUI_PATH/comfy-models.json" ]]; then
+  log "ComfyUI: модели — через внешнее картирование $COMFYUI_PATH/comfy-models.json (проверка пропущена)"
+else
+  COMFY_ROOT="${COMFYUI_MODELS_ROOT:-models/comfy}"
+  model_check "$COMFY_ROOT/checkpoints/sd_xl_base_1.0.safetensors" "SDXL base для ComfyUI"
+  model_check_any "VAE для SDXL" \
+    "$COMFY_ROOT/vae/sdxl_vae.safetensors" "$COMFY_ROOT/vae/sdxl-vae-fp16-fix.safetensors"
+  model_check_any "CLIP-L для SDXL (или авто-докачка ComfyUI)" \
+    "$COMFY_ROOT/clip/clip_l.safetensors" "$COMFY_ROOT/text_encoders/clip_l.safetensors"
+fi
 HY3D_ROOT="$(abs_path "$HY3D_MODEL_DIR")"
 model_check "$HY3D_ROOT/$HY3D_SHAPE_SUBFOLDER" "shape-модель Hunyuan3D-2.1 ($HY3D_SHAPE_SUBFOLDER)"
 model_check "$HY3D_ROOT/hunyuan3d-paintpbr-v2-1" "PBR-текстуры Hunyuan3D-2.1"

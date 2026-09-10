@@ -14,9 +14,11 @@ stop_pidfile hy3d2
 stop_pidfile comfyui
 stop_pidfile vllm
 
-# Остатки без pid-файлов (на всякий случай)
-for pat in "vllm serve" "ComfyUI/main.py" "gradio_app.py"; do
-  pids="$(pgrep -f "$pat" 2>/dev/null || true)"
+# Остатки без pid-файлов (на всякий случай). Паттерны покрывают и внутренние
+# запуски (venvs/*/vendor/*), и внешние установки (COMFYUI_PATH/HY3D_PATH, напр.
+# ~/apps/ComfyUI/.venv/bin/python main.py, ~/apps/Hunyuan3D-2.1/venv/bin/python api_server.py).
+for pat in "vllm serve" "vllm.entrypoints.openai.api_server" "comfyui.*main\.py" "gradio_app\.py" "api_server\.py"; do
+  pids="$(pgrep -if "$pat" 2>/dev/null || true)"
   if [[ -n "$pids" ]]; then
     warn "Найдены процессы без pid-файла ($pat): $pids — останавливаю"
     kill -TERM $pids 2>/dev/null || true

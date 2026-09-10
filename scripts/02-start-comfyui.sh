@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  02-start-comfyui.sh — ComfyUI для 2D-графики (текстуры, UI, иллюстрации)
-#    GPU: 2, порт 8188. Каталог моделей: models/comfy (симлинк в ComfyUI)
-#    Основные модели: SDXL base (+refiner), SDXL Turbo / Lightning LoRA,
-#    VAE fp16-fix, CLIP-L, LoRA под UI. API: http://127.0.0.1:8188/prompt
+#    GPU: 2, порт 8188. API: http://127.0.0.1:8188/prompt
+#    Режимы:
+#      - COMFYUI_PATH задан  -> ваша существующая установка (custom_nodes,
+#        workflows, comfy-models.json) — запускаем её main.py вашим python'ом;
+#      - иначе -> vendor/ComfyUI + venvs/comfyui из 00-setup.sh.
 # =============================================================================
 set -euo pipefail
 
@@ -23,21 +25,39 @@ if pid_running "$PIDFILE"; then
   exit 0
 fi
 if curl -fsS -o /dev/null --max-time 3 "$HEALTH_URL/system_stats" 2>/dev/null; then
-  die "$NAME уже слушает $URL, но pid-файла нет. Убейте процесс вручную (ps aux | grep ComfyUI)"
+  die "$NAME уже слушает $URL, но pid-файла нет. Убейте процесс вручную (ps aux | grep -i comfy)"
 fi
 
-[[ -d "vendor/ComfyUI" ]] || die "нет vendor/ComfyUI — сначала запустите ./scripts/00-setup.sh"
-[[ -d "venvs/comfyui" ]] || die "нет venvs/comfyui — сначала запустите ./scripts/00-setup.sh"
+COMFY_ARGS=(--listen "$LISTEN_HOST" --port "$COMFY_PORT" --preview-method auto)
+if [[ -n "$COMFYUI_RESERVE_VRAM" ]]; then
+  COMFY_ARGS+=(--reserve-vram "$COMFYUI_RESERVE_VRAM")
+fi
 
-log "Запуск ComfyUI: GPU=$GPU_COMFYUI порт=$COMFY_PORT, лог: $LOG_DIR/comfyui.log"
+if [[ -n "$COMFYUI_PATH" ]]; then
+  # --- внешний режим: существующая установка ComfyUI ---
+  COMFY_DIR="$COMFYUI_PATH"
+  [[ -f "$COMFY_DIR/main.py" ]] || die "COMFYUI_PATH: не найден main.py: $COMFY_DIR"
+  resolve_repo_python "${COMFYUI_PYTHON:-}" "$COMFY_DIR" || \
+    die "COMFYUI_PYTHON: python не найден (укажите COMFYUI_PYTHON; искомые пути: $COMFY_DIR/.venv/bin/python, $COMFY_DIR/venv/bin/python)"
+  if [[ -f "$COMFY_DIR/comfy-models.json" ]]; then
+    COMFY_ARGS+=(--extra-model-paths-config "$COMFY_DIR/comfy-models.json")
+  fi
+  COMFY_PY="$REPO_PY"
+  log "Запуск ComfyUI (существующая установка): $COMFY_DIR, python=$COMFY_PY, GPU=$GPU_COMFYUI, порт=$COMFY_PORT"
+else
+  # --- внутренний режим: vendor/ComfyUI + venvs/comfyui из setup ---
+  COMFY_DIR="$ROOT_DIR/vendor/ComfyUI"
+  [[ -d "$COMFY_DIR" ]] || die "нет vendor/ComfyUI — сначала запустите ./scripts/00-setup.sh"
+  [[ -d "$ROOT_DIR/venvs/comfyui" ]] || die "нет venvs/comfyui — сначала запустите ./scripts/00-setup.sh"
+  COMFY_PY="$ROOT_DIR/venvs/comfyui/bin/python"
+  log "Запуск ComfyUI (vendor): GPU=$GPU_COMFYUI, порт=$COMFY_PORT"
+fi
+log "Лог: $LOG_DIR/comfyui.log"
+
 (
-  cd "$ROOT_DIR/vendor/ComfyUI"
+  cd "$COMFY_DIR"
   CUDA_VISIBLE_DEVICES="$GPU_COMFYUI" \
-  nohup "$ROOT_DIR/venvs/comfyui/bin/python" main.py \
-    --listen "$LISTEN_HOST" \
-    --port "$COMFY_PORT" \
-    --preview-method auto \
-    ${COMFYUI_RESERVE_VRAM:+--reserve-vram "$COMFYUI_RESERVE_VRAM"} \
+  nohup "$COMFY_PY" main.py "${COMFY_ARGS[@]}" \
     >> "$LOG_DIR/comfyui.log" 2>&1 &
   echo $! > "$PIDFILE"
 )

@@ -138,18 +138,23 @@ hf download tencent/Hunyuan3D-2.1 \
 LLM_MODEL_DIR="/mnt/storage/models/Qwen3.8-27B-NVFP4-DFlash2"
 LLM_DFLASH2=1
 LLM_DFLASH2_MODEL="/mnt/storage/models/Qwen3.8-27B-DFlash2"
-COMFYUI_MODELS_ROOT="/mnt/storage/models/comfyui"   # checkpoints/ clip/ vae/ лежат рядом
 HY3D_MODEL_DIR="/mnt/storage/models/Hunyuan3D-2.1"
+HY3D_PORT=8090                        # порт вашего API 3D
+HY3D_U2NET_HOME="$HOME/.u2net"        # u2net.onnx для rembg (удаление фона)
 
-# ПРОДАКШЕН-режим (LLM на всех 4 картах, 256k — эталонный набор 1Cat):
-#   GPU_VLLM="0,1,2,3"
-#   LLM_TP=4
-#   LLM_MAX_MODEL_LEN=262144
-#   ComfyUI/3D при этом не запущены (./scripts/01-start-vllm.sh отдельно)
-#
-# Если vLLM уже стоит в conda/env (напр. 1cat-vllm-15) — укажите VLLM_PYTHON
-# на его python; setup wheel тогда не ставит.
+# Существующие установки — setup их проверит, но НЕ будет клонировать/ставить venvs:
+VLLM_PYTHON="$HOME/miniconda3/envs/1cat-vllm-15/bin/python"  # conda env 1Cat-vLLM
+COMFYUI_PATH="$HOME/apps/ComfyUI"         # ваш .venv + custom_nodes + comfy-models.json
+HY3D_PATH="$HOME/apps/Hunyuan3D-2.1"      # ваш venv + api_server.py (REST)
+# COMFYUI_MODELS_ROOT — НЕ нужен: comfy-models.json в ~/apps/ComfyUI уже
+# картирует /mnt/storage/models/comfyui (checkpoints/clip/vae).
 ```
+
+При таком конфиге `00-setup.sh` занимает ~1 минуту (только проверки: torch +
+sm_70 в каждом окружении, наличие моделей на `/mnt`), а запускаются ваши
+готовые установки: ComfyUI — ваш `main.py` (с `--extra-model-paths-config`
+comfy-models.json), 3D — ваш `api_server.py` (REST, `POST /generate` с
+`"texture": true`).
 
 `00-setup.sh` сделает симлинки `vendor/ComfyUI/models/{checkpoints,clip,vae} ->`
 `$COMFYUI_MODELS_ROOT/...` и проверит наличие всех моделей по фактическим

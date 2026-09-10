@@ -24,6 +24,25 @@ ok()   { echo "${C_GREEN}[$(date +%H:%M:%S)] OK${C_RST} $*"; }
 warn() { echo "${C_YELLOW}[$(date +%H:%M:%S)] WARN${C_RST} $*"; }
 die()  { echo "${C_RED}[$(date +%H:%M:%S)] ОШИБКА:${C_RST} $*" >&2; exit 1; }
 
+# Python внешнего checkout'а: resolve_repo_python <explicit_python> <repo_path>
+# Ставит REPO_PY: сначала явный путь, иначе <path>/.venv/bin/python,
+# иначе <path>/venv/bin/python. Возврат 1 — если ничего не найдено.
+resolve_repo_python() {
+  if [[ -n "${1:-}" ]]; then
+    [[ -x "${1:-}" ]] || return 1
+    REPO_PY="$1"
+    return 0
+  fi
+  local p
+  for p in "$2/.venv/bin/python" "$2/venv/bin/python"; do
+    if [[ -x "$p" ]]; then
+      REPO_PY="$p"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Загрузка config.env (создаёт logs/ и pids/)
 # После config.env подгружается оверлей mode.env (режим GPU, пишет scripts/mode.sh):
 #   prod = LLM TP4 на всех картах (256k), pipeline = дефолты config.env
