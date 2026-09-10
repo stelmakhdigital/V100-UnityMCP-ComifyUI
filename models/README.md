@@ -63,6 +63,13 @@ fast-path'ов, но всё равно заметно быстрее обычн�
 
 ## 2. ComfyUI (GPU 2) — ~15 GB (минимум) / ~33 GB (с refiner + turbo)
 
+Если задан `COMFYUI_MODELS_ROOT` (модели уже лежат в общем каталоге) — этот
+раздел не нужен: `00-setup.sh` просимлинкует каталоги как есть. Для
+`/mnt/storage/models/comfyui` минимум (SDXL base + VAE + CLIP-L) и бонусный
+полный пайплайн Flux schnell (flux1-schnell + t5xxl_fp16 + ae) уже на месте —
+ничего докачивать не требуется.
+
+
 | Что | Откуда | Куда положить |
 |---|---|---|
 | SDXL 1.0 base (обязательно) ~6.9 GB | `stabilityai/stable-diffusion-xl-base-1.0` | `models/comfy/checkpoints/sd_xl_base_1.0.safetensors` |
