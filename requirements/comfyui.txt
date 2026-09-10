@@ -1,0 +1,11 @@
+# ComfyUI: зависимости ставятся в два шага (так делает 00-setup.sh):
+#
+# Шаг 1 — PyTorch со sm_70 из официального индекса (не с PyPI!):
+#   pip install torch==2.7.1 torchvision==0.22.1 \
+#     --index-url https://download.pytorch.org/whl/cu126
+#
+# Шаг 2 — зависимости ComfyUI (torch уже стоит — не затрагивается):
+#   pip install -r vendor/ComfyUI/requirements.txt
+#
+# Версии torch/torchvision зафиксированы в config.env (TORCH_VERSION и др.).
+# Сборки cu126 включают sm_70 (V100). Сборки cu13x V100 не поддерживают.

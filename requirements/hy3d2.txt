@@ -1,0 +1,10 @@
+# Hunyuan3D-2: зависимости ставятся в два шага (так делает 00-setup.sh):
+#
+# Шаг 1 — PyTorch со sm_70 из официального индекса:
+#   pip install torch==2.7.1 torchvision==0.22.1 \
+#     --index-url https://download.pytorch.org/whl/cu126
+#
+# Шаг 2 — зависимости репозитория:
+#   pip install -r vendor/Hunyuan3D-2/requirements.txt
+#
+# Версии torch/torchvision зафиксированы в config.env (TORCH_VERSION и др.).

@@ -1,0 +1,16 @@
+# LLM-движок: 1Cat-vLLM — vLLM-форк, в котором V100 (sm_70) — first-class цель.
+#
+#   https://github.com/1CatAI/1Cat-vLLM
+#   wheel: https://github.com/1CatAI/1Cat-vLLM/releases  (cp312, linux_x86_64)
+#
+# Установка (делает 00-setup.sh):
+#   1) скачать wheel релиза (URL и SHA256 зафиксированы в config.env);
+#   2) pip install <wheel>  — зависимостями придёт torch==2.10.0 и остальное;
+#   3) проверка: import vllm; import flash_attn_v100; sm_70 в arch list torch.
+#
+# Почему не vllm из PyPI: пип-колеса vLLM >= 0.21 собраны на CUDA >= 12.8
+# БЕЗ sm_70. У 1Cat-vLLM свои предсобранные wheel под sm_70 (FlashAttention-V100),
+# собирать из исходников не нужно.
+#
+# Текущий пин: 1Cat-vLLM 1.5.0 (см. config.env: ONECAT_VLLM_VERSION,
+# ONECAT_VLLM_WHEEL_URL, ONECAT_VLLM_WHEEL_SHA256).

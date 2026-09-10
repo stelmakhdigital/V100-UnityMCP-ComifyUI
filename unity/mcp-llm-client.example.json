@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "Пример подключения LLM-провайдера для любого MCP-клиента (Cline, Roo Code,",
+    "OpenCode, Continue, Cursor и т.п.), который управляет Unity MCP-сервером.",
+    "Сервер: 1Cat-vLLM (OpenAI-совместимый API); API-ключ не требуется.",
+    "",
+    "Tool-calling (MCP-инструменты) поддерживается на стороне сервера:",
+    "vllm serve поднят с --enable-auto-tool-choice --tool-call-parser qwen3_coder",
+    "--reasoning-parser qwen3, поэтому клиенту нужно только слать стандартные",
+    "OpenAI tools в /v1/chat/completions.",
+    "",
+    "Qwen3: режим thinking на сервере выключен по умолчанию",
+    "(default chat-template kwargs: enable_thinking=false) — это верный режим",
+    "для агентной работы. Попробовать включить: поле chat_template_kwargs",
+    "в теле запроса: {\"enable_thinking\": true}.",
+    "",
+    "Данные из config.env:  VLLM_PORT=8000,  LLM_SERVED_NAME=unity-llm"
+  ],
+
+  "provider": "openai-compatible",
+  "apiBase": "http://127.0.0.1:8000/v1",
+  "apiKey": "sk-local-any",
+  "model": "unity-llm"
+}

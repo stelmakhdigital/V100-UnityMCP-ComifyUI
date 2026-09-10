@@ -1,0 +1,16 @@
+# окружения и зависимости
+venvs/
+vendor/
+
+# модели (скачиваются отдельно, см. models/README.md)
+models/**
+!models/README.md
+
+# запуски
+logs/
+pids/
+
+# прочее
+__pycache__/
+*.pyc
+.DS_Store
